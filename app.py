@@ -20,13 +20,25 @@ def save_employee_data(name, photo_path, encoding):
     # Load existing data
     employees_data = load_employee_data()
     
-    # Add new employee
-    employee_id = len(employees_data) + 1
-    employees_data[employee_id] = {
-        'name': name,
-        'photo_path': photo_path,
-        'embedding': encoding
-    }
+    # Check if employee already exists
+    existing_emp_id = None
+    for emp_id, emp_data in employees_data.items():
+        if emp_data['name'].lower() == name.lower():
+            existing_emp_id = emp_id
+            break
+    
+    if existing_emp_id:
+        # Add new photo and embedding to existing employee
+        employees_data[existing_emp_id]['photo_paths'].append(photo_path)
+        employees_data[existing_emp_id]['embeddings'].append(encoding)
+    else:
+        # Create new employee
+        employee_id = len(employees_data) + 1
+        employees_data[employee_id] = {
+            'name': name,
+            'photo_paths': [photo_path],  # List of photo paths
+            'embeddings': [encoding]      # List of embeddings
+        }
     
     # Save to file
     with open(EMPLOYEE_DATA_FILE, 'wb') as f:
@@ -51,8 +63,11 @@ def save_embeddings_file():
     }
     
     for emp_id, emp_data in employees_data.items():
-        embeddings_data['names'].append(emp_data['name'])
-        embeddings_data['encodings'].append(emp_data['embedding'])
+        # Add all embeddings for each employee
+        for embedding in emp_data.get('embeddings', [emp_data.get('embedding')]):  # Backward compatibility
+            if embedding is not None:
+                embeddings_data['names'].append(emp_data['name'])
+                embeddings_data['encodings'].append(embedding)
     
     with open(EMBEDDINGS_FILE, 'wb') as f:
         pickle.dump(embeddings_data, f)
@@ -70,17 +85,23 @@ def get_all_employees():
     employees_data = load_employee_data()
     employees_list = []
     for emp_id, emp_data in employees_data.items():
-        employees_list.append((emp_id, emp_data['name'], emp_data['photo_path']))
+        # Get photo paths (handle both old and new format)
+        photo_paths = emp_data.get('photo_paths', [emp_data.get('photo_path')])
+        photo_paths = [p for p in photo_paths if p is not None]  # Remove None values
+        photo_count = len(photo_paths)
+        main_photo = photo_paths[0] if photo_paths else None
+        employees_list.append((emp_id, emp_data['name'], main_photo, photo_count, photo_paths))
     return employees_list
 
 def delete_employee(employee_id):
     """Delete employee from files"""
     employees_data = load_employee_data()
     if employee_id in employees_data:
-        # Remove photo file if it exists
-        photo_path = employees_data[employee_id]['photo_path']
-        if os.path.exists(photo_path):
-            os.remove(photo_path)
+        # Remove photo files if they exist
+        photo_paths = employees_data[employee_id].get('photo_paths', [employees_data[employee_id].get('photo_path')])
+        for photo_path in photo_paths:
+            if photo_path and os.path.exists(photo_path):
+                os.remove(photo_path)
         
         # Remove from data
         del employees_data[employee_id]
@@ -223,48 +244,76 @@ def main():
             st.subheader("Add New Employee")
             
             employee_name = st.text_input("Employee Name")
-            uploaded_photo = st.file_uploader("Upload Employee Photo", 
-                                            type=['jpg', 'jpeg', 'png'])
+            uploaded_photos = st.file_uploader("Upload Employee Photos", 
+                                              type=['jpg', 'jpeg', 'png'],
+                                              accept_multiple_files=True)
             
-            if st.button("Add Employee") and employee_name and uploaded_photo:
-                # Save uploaded photo
-                photo_dir = "employee_photos"
-                os.makedirs(photo_dir, exist_ok=True)
-                photo_path = os.path.join(photo_dir, f"{employee_name}_{uploaded_photo.name}")
+            if st.button("Add Photos") and employee_name and uploaded_photos:
+                success_count = 0
+                error_count = 0
                 
-                with open(photo_path, "wb") as f:
-                    f.write(uploaded_photo.getbuffer())
+                for uploaded_photo in uploaded_photos:
+                for uploaded_photo in uploaded_photos:
+                    # Save uploaded photo
+                    photo_dir = "employee_photos"
+                    os.makedirs(photo_dir, exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    photo_path = os.path.join(photo_dir, f"{employee_name}_{timestamp}_{uploaded_photo.name}")
+                    
+                    with open(photo_path, "wb") as f:
+                        f.write(uploaded_photo.getbuffer())
+                    
+                    # Load and process the image
+                    image = face_recognition.load_image_file(photo_path)
+                    face_encodings = face_recognition.face_encodings(image)
+                    
+                    if face_encodings:
+                        face_encoding = face_encodings[0]
+                        save_employee_data(employee_name, photo_path, face_encoding)
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        os.remove(photo_path)  # Remove invalid photo
                 
-                # Load and process the image
-                image = face_recognition.load_image_file(photo_path)
-                face_encodings = face_recognition.face_encodings(image)
-                
-                if face_encodings:
-                    face_encoding = face_encodings[0]
-                    save_employee_data(employee_name, photo_path, face_encoding)
-                    st.success(f"Employee {employee_name} added successfully!")
+                if success_count > 0:
+                    st.success(f"Added {success_count} photos for {employee_name}!")
+                    if error_count > 0:
+                        st.warning(f"{error_count} photos were skipped (no face detected)")
                     st.rerun()
                 else:
-                    st.error("No face detected in the uploaded photo. Please upload a clear photo.")
-                    os.remove(photo_path)
+                    st.error("No valid faces detected in any photos. Please upload clear photos.")
         
         with tab2:
             st.subheader("Manage Employees")
             
             employees = get_all_employees()
             if employees:
-                for emp_id, name, photo_path in employees:
-                    col1, col2, col3 = st.columns([2, 2, 1])
+                for emp_id, name, main_photo, photo_count, all_photos in employees:
+                    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
                     with col1:
                         st.write(f"**{name}**")
+                        st.write(f"Photos: {photo_count}")
                     with col2:
-                        if os.path.exists(photo_path):
-                            st.image(photo_path, width=100)
+                        if main_photo and os.path.exists(main_photo):
+                            st.image(main_photo, width=100, caption="Main photo")
                     with col3:
+                        if st.button("View All", key=f"view_{emp_id}"):
+                            st.session_state[f'show_photos_{emp_id}'] = not st.session_state.get(f'show_photos_{emp_id}', False)
+                    with col4:
                         if st.button("Delete", key=f"del_{emp_id}"):
                             delete_employee(emp_id)
                             st.success(f"Employee {name} deleted!")
                             st.rerun()
+                    
+                    # Show all photos if expanded
+                    if st.session_state.get(f'show_photos_{emp_id}', False):
+                        st.write("All photos:")
+                        photo_cols = st.columns(min(len(all_photos), 4))
+                        for i, photo_path in enumerate(all_photos):
+                            if photo_path and os.path.exists(photo_path):
+                                with photo_cols[i % 4]:
+                                    st.image(photo_path, width=80)
+                    st.markdown("---")
             else:
                 st.info("No employees found. Please add employees first.")
     
