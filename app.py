@@ -149,18 +149,21 @@ def delete_employee(employee_id):
 
         save_embeddings_file()
 
-def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
-    """Create or update attendance log in Excel"""
+def create_attendance_log(date_str, employee_name, entry_time, exit_time=None, emp_id=None):
+    """Create or update attendance log in Excel with employee ID"""
     filename = f"attendance_{date_str}.xlsx"
     
     # Check if file exists
     if os.path.exists(filename):
         df = pd.read_excel(filename)
     else:
-        df = pd.DataFrame(columns=['Employee', 'Date', 'Entry Time', 'Exit Time', 'Total Hours'])
+        df = pd.DataFrame(columns=['Employee ID', 'Employee', 'Date', 'Entry Time', 'Exit Time', 'Total Hours'])
     
-    # Check if employee already has an entry for today
-    existing_entry = df[(df['Employee'] == employee_name) & (df['Date'] == date_str)]
+    # Check if employee already has an entry for today using emp_id
+    if emp_id is not None:
+        existing_entry = df[(df['Employee ID'] == emp_id) & (df['Date'] == date_str)]
+    else:
+        existing_entry = df[(df['Employee'] == employee_name) & (df['Date'] == date_str)]
     
     if not existing_entry.empty:
         # Update exit time if it's an exit
@@ -176,6 +179,7 @@ def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
     else:
         # Create new entry
         new_row = {
+            'Employee ID': emp_id,
             'Employee': employee_name,
             'Date': date_str,
             'Entry Time': entry_time,
@@ -187,49 +191,7 @@ def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
     df.to_excel(filename, index=False)
     return filename
 
-def recognize_face_in_frame(frame, known_embeddings, known_names, known_ids, threshold=0.6):
-    """Recognize faces in frame using pre-computed embeddings (MUCH FASTER!)"""
-    try:
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Compute embedding for the frame using DeepFace in-memory
-        embeddings_result = DeepFace.represent(
-            img_path=None,  # Not using a path
-            img=rgb_frame,  # Pass the NumPy array directly
-            model_name='VGG-Face',
-            enforce_detection=False
-        )
-
-        if not embeddings_result:
-            return []
-
-        # DeepFace.represent returns a list of dicts; get the embedding vector
-        frame_embedding = embeddings_result[0]['embedding']
-        
-        recognized_names = []
-        
-        # Compare with all known embeddings using cosine similarity
-        for i, known_embedding in enumerate(known_embeddings):
-            similarity = cosine_similarity(frame_embedding, known_embedding)
-            
-            # If similarity is above threshold, it's a match
-            if similarity > threshold:
-                emp_id = known_ids[i]
-                name = known_names[i]
-
-                if not any(r['id'] == emp_id for r in recognized):
-                    recognized.append({
-                        'id': emp_id,
-                        'name': name,
-                        'similarity': similarity
-                    })
-                    st.write(f"🎯 Detected {name} (similarity: {similarity:.3f})")
-
-        
-        return recognized
-    except Exception as e:
-        st.warning(f"Face recognition error: {str(e)}")
-        return []
 
 def process_video_for_attendance(video_path, camera_type="entry"):
     """Process video file and detect faces for attendance using pre-computed embeddings"""
@@ -242,6 +204,7 @@ def process_video_for_attendance(video_path, camera_type="entry"):
     
     known_embeddings = embeddings_data['embeddings']
     known_names = embeddings_data['names']
+    known_ids = embeddings_data.get('ids', [None]*len(known_embeddings))
     
     st.info(f"🚀 Loaded {len(known_embeddings)} pre-computed embeddings for fast recognition")
     
@@ -272,11 +235,15 @@ def process_video_for_attendance(video_path, camera_type="entry"):
             small_frame = cv2.resize(frame, (0, 0), fx=0.4, fy=0.4)
             
             # Recognize faces using pre-computed embeddings (MUCH FASTER!)
-            recognized_names = recognize_face_in_frame(small_frame, known_embeddings, known_names)
-            
-            for name in recognized_names:
-                if name not in detected_employees:
-                    detected_employees.add(name)
+            recognized = recognize_face_in_frame(small_frame, known_embeddings, known_names, known_ids)
+
+
+            for r in recognized:
+                emp_id = r['id']
+                name = r['name']
+                
+                if emp_id not in detected_employees:
+                    detected_employees.add(emp_id)
                     
                     # Calculate timestamp based on frame position
                     timestamp_seconds = current_frame / fps
@@ -286,10 +253,13 @@ def process_video_for_attendance(video_path, camera_type="entry"):
                     timestamp = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                     
                     attendance_logs.append({
+                        'id': emp_id,
                         'name': name,
                         'time': timestamp,
                         'type': camera_type
                     })
+            
+            
         
         current_frame += 1
         progress = current_frame / total_frames
@@ -441,7 +411,7 @@ def main():
                 if attendance_logs:
                     today = date.today().strftime("%Y-%m-%d")
                     for log in attendance_logs:
-                        filename = create_attendance_log(today, log['name'], log['time'])
+                        filename = create_attendance_log(today, log['name'], log['time'], emp_id=log['id'])
                     
                     st.success(f"✅ Entry processing complete! {len(attendance_logs)} employees detected.")
                     for log in attendance_logs:
@@ -467,7 +437,8 @@ def main():
                 if attendance_logs:
                     today = date.today().strftime("%Y-%m-%d")
                     for log in attendance_logs:
-                        filename = create_attendance_log(today, log['name'], None, log['time'])
+                        filename = create_attendance_log(today, log['name'], None, log['time'], emp_id=log['id'])
+                
                     
                     st.success(f"✅ Exit processing complete! {len(attendance_logs)} employees detected.")
                     for log in attendance_logs:
