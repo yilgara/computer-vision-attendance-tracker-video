@@ -271,14 +271,7 @@ def process_video_for_attendance(video_path, camera_type="entry"):
     
     return attendance_logs
 
-def test_face_detection(image_path):
-    """Test if face can be detected and compute embedding"""
-    try:
-        # Try to compute embedding (this also validates face detection)
-        embedding = compute_embedding(image_path)
-        return embedding is not None
-    except:
-        return False
+
 
 def main():
     st.set_page_config(page_title="Employee Attendance System", layout="wide")
