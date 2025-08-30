@@ -3,11 +3,11 @@ import pickle
 import numpy as np
 from deepface import DeepFace
 import streamlit as st
-from utils import load_employee_data
+from utils import load_employee_data, EMBEDDINGS_FILE
 
 
 
-EMBEDDINGS_FILE = "employee_embeddings.pkl"
+
 
 
 def save_embeddings_file():
