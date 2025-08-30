@@ -31,11 +31,68 @@ A complete **computer vision-based employee attendance tracking system** using *
 
 ---
 
+
+## Tech Stack
+
+- **Language:** Python
+- **Core Libraries:**
+  - OpenCV (`cv2`) for computer vision tasks
+  - Deepface for face detection & encoding
+  - NumPy for data manipulation
+  - Pandas for attendance log management
+  - Streamlit for web interface
+
+
+---
+
+
 ## Folder Structure
 
+```
+project_root/
+│
+├─ app.py                    # Main Streamlit application
+├─ employee.py               # Employee management functions
+├─ embeddings.py             # Embedding computation and storage
+├─ attendance.py             # Attendance processing and Excel logs
+├─ views/                    # Streamlit page modules
+│   ├─ employee_management.py
+│   ├─ process_attendance.py
+│   └─ view_records.py
+├─ employee_photos/          # Folder to store uploaded employee images
+├─ employee_data.pkl         # Pickle file storing employee info
+├─ employee_embeddings.pkl   # Pickle file storing embeddings for fast recognition
+└─ requirements.txt          # Python dependencies
+```
 
+---
 
+## Installation
 
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/employee-attendance-system.git
+   cd employee-attendance-system
+   ```
+
+2. **Create a virtual environment (recommended)**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate   # Linux/Mac
+   venv\Scripts\activate      # Windows
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   _Dependencies include: `streamlit`, `opencv-python`, `numpy`, `pandas`, `deepface`._
+
+4. **Create directories for employee photos**
+   ```bash
+   mkdir employee_photos
+   ```
+   
 ## Usage
 
 ### 1. Run the Streamlit App
@@ -70,5 +127,14 @@ streamlit run app.py
   - Entry Time  
   - Exit Time  
   - Total Hours
+
+---
+
+
+
+## Deployment
+
+The application is deployed and accessible at:  
+**[https://computer-vision-attendance-tracker-video-enpsabwula333ktsiph55.streamlit.app](https://computer-vision-attendance-tracker-video-enpsabwula333ktsiph55.streamlit.app)**
 
 ---
