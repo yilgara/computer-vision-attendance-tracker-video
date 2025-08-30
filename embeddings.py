@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from deepface import DeepFace
 import streamlit as st
-from employee import load_employee_data
+from utils import load_employee_data
 
 
 
