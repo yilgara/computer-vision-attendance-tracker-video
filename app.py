@@ -80,7 +80,7 @@ def load_embeddings_for_recognition():
     if os.path.exists(EMBEDDINGS_FILE):
         with open(EMBEDDINGS_FILE, 'rb') as f:
             return pickle.load(f)
-    return {'names': [], 'embeddings': []}
+    return {'ids': [], 'names': [], 'embeddings': []}
 
 def compute_embedding(image_path):
     """Compute embedding for a single image using DeepFace"""
