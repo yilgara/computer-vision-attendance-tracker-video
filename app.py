@@ -16,6 +16,13 @@ warnings.filterwarnings('ignore')
 EMBEDDINGS_FILE = "employee_embeddings.pkl"
 EMPLOYEE_DATA_FILE = "employee_data.pkl"
 
+
+def generate_employee_id(employees_data):
+    if not employees_data:
+        return 1
+    return max(int(emp_id) for emp_id in employees_data.keys()) + 1
+
+
 def save_employee_data(name, photo_path, embedding):
     """Save employee data and embedding to files"""
     # Load existing data
@@ -34,7 +41,7 @@ def save_employee_data(name, photo_path, embedding):
         employees_data[existing_emp_id]['embeddings'].append(embedding)
     else:
         # Create new employee
-        employee_id = len(employees_data) + 1
+        employee_id = generate_employee_id(employees_data)
         employees_data[employee_id] = {
             'name': name,
             'photo_paths': [photo_path],
@@ -52,6 +59,7 @@ def save_embeddings_file():
     """Save embeddings to separate file for faster loading during video processing"""
     employees_data = load_employee_data()
     embeddings_data = {
+        'ids': [],
         'names': [],
         'embeddings': []
     }
@@ -60,6 +68,7 @@ def save_embeddings_file():
         # Add all embeddings for each employee
         for embedding in emp_data.get('embeddings', []):
             if embedding is not None:
+                embeddings_data['ids'].append(emp_id)        # Save ID
                 embeddings_data['names'].append(emp_data['name'])
                 embeddings_data['embeddings'].append(embedding)
     
