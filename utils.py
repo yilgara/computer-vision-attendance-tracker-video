@@ -4,6 +4,7 @@ import pickle
 
 
 EMBEDDINGS_FILE = "employee_embeddings.pkl"
+EMPLOYEE_DATA_FILE = "employee_data.pkl"
 
 def cosine_similarity(embedding1, embedding2):
     embedding1 = np.array(embedding1)
