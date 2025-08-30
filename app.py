@@ -138,6 +138,8 @@ def delete_employee(employee_id):
         with open(EMPLOYEE_DATA_FILE, 'wb') as f:
             pickle.dump(employees_data, f)
 
+        save_embeddings_file()
+
 def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
     """Create or update attendance log in Excel"""
     filename = f"attendance_{date_str}.xlsx"
@@ -179,19 +181,21 @@ def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
 def recognize_face_in_frame(frame, known_embeddings, known_names, threshold=0.6):
     """Recognize faces in frame using pre-computed embeddings (MUCH FASTER!)"""
     try:
-        # Save frame temporarily for DeepFace processing
-        temp_frame_path = "temp_frame.jpg"
-        cv2.imwrite(temp_frame_path, frame)
-        
-        # Compute embedding for the frame
-        frame_embedding = compute_embedding(temp_frame_path)
-        
-        # Clean up temp file
-        if os.path.exists(temp_frame_path):
-            os.remove(temp_frame_path)
-        
-        if frame_embedding is None:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Compute embedding for the frame using DeepFace in-memory
+        embeddings_result = DeepFace.represent(
+            img_path=None,  # Not using a path
+            img=rgb_frame,  # Pass the NumPy array directly
+            model_name='VGG-Face',
+            enforce_detection=False
+        )
+
+        if not embeddings_result:
             return []
+
+        # DeepFace.represent returns a list of dicts; get the embedding vector
+        frame_embedding = embeddings_result[0]['embedding']
         
         recognized_names = []
         
