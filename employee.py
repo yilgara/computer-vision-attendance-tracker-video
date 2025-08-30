@@ -1,9 +1,9 @@
 import os
 import pickle
 from embeddings import save_embeddings_file
-from utils import load_employee_data
+from utils import load_employee_data, EMPLOYEE_DATA_FILE
 
-EMPLOYEE_DATA_FILE = "employee_data.pkl"
+
 
 
 
