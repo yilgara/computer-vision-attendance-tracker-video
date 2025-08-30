@@ -1,4 +1,8 @@
 import numpy as np
+import os
+import pickle
+from embeddings import EMBEDDINGS_FILE
+from employee import EMPLOYEE_DATA_FILE
 
 def cosine_similarity(embedding1, embedding2):
     embedding1 = np.array(embedding1)
@@ -9,3 +13,11 @@ def cosine_similarity(embedding1, embedding2):
     if norm_a == 0 or norm_b == 0:
         return 0
     return dot_product / (norm_a * norm_b)
+
+
+def load_employee_data():
+    """Load all employee data from file"""
+    if os.path.exists(EMPLOYEE_DATA_FILE):
+        with open(EMPLOYEE_DATA_FILE, 'rb') as f:
+            return pickle.load(f)
+    return {}
