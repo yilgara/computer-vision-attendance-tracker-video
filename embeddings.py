@@ -5,6 +5,11 @@ from deepface import DeepFace
 import streamlit as st
 from employee import load_employee_data
 
+
+
+EMBEDDINGS_FILE = "employee_embeddings.pkl"
+
+
 def save_embeddings_file():
     """Save embeddings to separate file for faster loading during video processing"""
     employees_data = load_employee_data()
