@@ -33,3 +33,42 @@ A complete **computer vision-based employee attendance tracking system** using *
 
 ## Folder Structure
 
+
+
+
+## Usage
+
+### 1. Run the Streamlit App
+
+Launch the interactive web interface with:
+```bash
+streamlit run app.py
+```
+
+### 2. Navigate the App
+
+- **Employee Management:**  
+  Add new employees with multiple photos and manage existing employee profiles.
+
+- **Process Attendance:**  
+  Upload entry and exit camera videos and process attendance automatically. The system detects, recognizes, and logs employee entries and exits.
+
+- **View Records:**  
+  Browse daily attendance, download Excel reports, and view lists of late arrivals or employees currently in the office.
+
+---
+
+### 3. Attendance Logs
+
+- **Storage:**  
+  Attendance logs are automatically saved as `attendance_YYYY-MM-DD.xlsx` files.
+
+- **Columns Included:**  
+  - Employee ID  
+  - Employee Name  
+  - Date  
+  - Entry Time  
+  - Exit Time  
+  - Total Hours
+
+---
