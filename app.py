@@ -16,8 +16,8 @@ warnings.filterwarnings('ignore')
 EMBEDDINGS_FILE = "employee_embeddings.pkl"
 EMPLOYEE_DATA_FILE = "employee_data.pkl"
 
-def save_employee_data(name, photo_path):
-    """Save employee data to files"""
+def save_employee_data(name, photo_path, embedding):
+    """Save employee data and embedding to files"""
     # Load existing data
     employees_data = load_employee_data()
     
@@ -29,19 +29,79 @@ def save_employee_data(name, photo_path):
             break
     
     if existing_emp_id:
-        # Add new photo to existing employee
+        # Add new photo and embedding to existing employee
         employees_data[existing_emp_id]['photo_paths'].append(photo_path)
+        employees_data[existing_emp_id]['embeddings'].append(embedding)
     else:
         # Create new employee
         employee_id = len(employees_data) + 1
         employees_data[employee_id] = {
             'name': name,
-            'photo_paths': [photo_path]
+            'photo_paths': [photo_path],
+            'embeddings': [embedding]
         }
     
     # Save to file
     with open(EMPLOYEE_DATA_FILE, 'wb') as f:
         pickle.dump(employees_data, f)
+    
+    # Update embeddings file for fast loading
+    save_embeddings_file()
+
+def save_embeddings_file():
+    """Save embeddings to separate file for faster loading during video processing"""
+    employees_data = load_employee_data()
+    embeddings_data = {
+        'names': [],
+        'embeddings': []
+    }
+    
+    for emp_id, emp_data in employees_data.items():
+        # Add all embeddings for each employee
+        for embedding in emp_data.get('embeddings', []):
+            if embedding is not None:
+                embeddings_data['names'].append(emp_data['name'])
+                embeddings_data['embeddings'].append(embedding)
+    
+    with open(EMBEDDINGS_FILE, 'wb') as f:
+        pickle.dump(embeddings_data, f)
+
+def load_embeddings_for_recognition():
+    """Load pre-computed embeddings for fast recognition"""
+    if os.path.exists(EMBEDDINGS_FILE):
+        with open(EMBEDDINGS_FILE, 'rb') as f:
+            return pickle.load(f)
+    return {'names': [], 'embeddings': []}
+
+def compute_embedding(image_path):
+    """Compute embedding for a single image using DeepFace"""
+    try:
+        # Generate embedding using DeepFace
+        embedding = DeepFace.represent(
+            img_path=image_path,
+            model_name='VGG-Face',
+            enforce_detection=False
+        )
+        return embedding[0]['embedding']  # Return the embedding vector
+    except Exception as e:
+        st.error(f"Error computing embedding: {str(e)}")
+        return None
+
+def cosine_similarity(embedding1, embedding2):
+    """Calculate cosine similarity between two embeddings"""
+    embedding1 = np.array(embedding1)
+    embedding2 = np.array(embedding2)
+    
+    # Calculate cosine similarity
+    dot_product = np.dot(embedding1, embedding2)
+    norm_a = np.linalg.norm(embedding1)
+    norm_b = np.linalg.norm(embedding2)
+    
+    if norm_a == 0 or norm_b == 0:
+        return 0
+    
+    similarity = dot_product / (norm_a * norm_b)
+    return similarity
 
 def load_employee_data():
     """Load all employee data from file"""
@@ -116,44 +176,36 @@ def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
     df.to_excel(filename, index=False)
     return filename
 
-def recognize_face_in_frame(frame, reference_photos):
-    """Recognize faces in frame using DeepFace"""
+def recognize_face_in_frame(frame, known_embeddings, known_names, threshold=0.6):
+    """Recognize faces in frame using pre-computed embeddings (MUCH FASTER!)"""
     try:
-        # Convert frame to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Save frame temporarily
+        # Save frame temporarily for DeepFace processing
         temp_frame_path = "temp_frame.jpg"
         cv2.imwrite(temp_frame_path, frame)
         
-        recognized_names = []
-        
-        # Try to verify against each reference photo
-        for name, photo_paths in reference_photos.items():
-            for photo_path in photo_paths:
-                try:
-                    # Use DeepFace to verify if the same person
-                    result = DeepFace.verify(
-                        img1_path=temp_frame_path,
-                        img2_path=photo_path,
-                        model_name='VGG-Face',  # Fast and reliable model
-                        distance_metric='cosine',
-                        enforce_detection=False
-                    )
-                    
-                    # If verification is successful and confidence is high
-                    if result['verified'] and result['distance'] < 0.4:
-                        if name not in recognized_names:
-                            recognized_names.append(name)
-                        break  # Found match, no need to check other photos of same person
-                        
-                except Exception as e:
-                    continue  # Skip this comparison if it fails
+        # Compute embedding for the frame
+        frame_embedding = compute_embedding(temp_frame_path)
         
         # Clean up temp file
         if os.path.exists(temp_frame_path):
             os.remove(temp_frame_path)
+        
+        if frame_embedding is None:
+            return []
+        
+        recognized_names = []
+        
+        # Compare with all known embeddings using cosine similarity
+        for i, known_embedding in enumerate(known_embeddings):
+            similarity = cosine_similarity(frame_embedding, known_embedding)
             
+            # If similarity is above threshold, it's a match
+            if similarity > threshold:
+                name = known_names[i]
+                if name not in recognized_names:
+                    recognized_names.append(name)
+                    st.write(f"🎯 Detected {name} (similarity: {similarity:.3f})")
+        
         return recognized_names
         
     except Exception as e:
@@ -162,17 +214,18 @@ def recognize_face_in_frame(frame, reference_photos):
         return []
 
 def process_video_for_attendance(video_path, camera_type="entry"):
-    """Process video file and detect faces for attendance using DeepFace"""
-    employees_data = load_employee_data()
+    """Process video file and detect faces for attendance using pre-computed embeddings"""
+    # Load pre-computed embeddings (FAST!)
+    embeddings_data = load_embeddings_for_recognition()
     
-    if not employees_data:
-        st.error("No employees found. Please add employees first.")
+    if not embeddings_data['embeddings']:
+        st.error("No employee embeddings found. Please add employees first.")
         return []
     
-    # Prepare reference photos dictionary
-    reference_photos = {}
-    for emp_id, emp_data in employees_data.items():
-        reference_photos[emp_data['name']] = emp_data['photo_paths']
+    known_embeddings = embeddings_data['embeddings']
+    known_names = embeddings_data['names']
+    
+    st.info(f"🚀 Loaded {len(known_embeddings)} pre-computed embeddings for fast recognition")
     
     cap = cv2.VideoCapture(video_path)
     detected_employees = set()
@@ -182,8 +235,8 @@ def process_video_for_attendance(video_path, camera_type="entry"):
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    # Process every 60th frame to speed up processing (DeepFace is slower)
-    frame_skip = 60
+    # Process every 90th frame (faster since we're using pre-computed embeddings)
+    frame_skip = 90
     current_frame = 0
     
     progress_bar = st.progress(0)
@@ -195,13 +248,13 @@ def process_video_for_attendance(video_path, camera_type="entry"):
             break
         
         if current_frame % frame_skip == 0:
-            status_text.text(f"Processing frame {current_frame}/{total_frames}")
+            status_text.text(f"⚡ Fast processing frame {current_frame}/{total_frames}")
             
             # Resize frame for faster processing
-            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+            small_frame = cv2.resize(frame, (0, 0), fx=0.4, fy=0.4)
             
-            # Recognize faces in frame
-            recognized_names = recognize_face_in_frame(small_frame, reference_photos)
+            # Recognize faces using pre-computed embeddings (MUCH FASTER!)
+            recognized_names = recognize_face_in_frame(small_frame, known_embeddings, known_names)
             
             for name in recognized_names:
                 if name not in detected_employees:
@@ -231,15 +284,11 @@ def process_video_for_attendance(video_path, camera_type="entry"):
     return attendance_logs
 
 def test_face_detection(image_path):
-    """Test if face can be detected in image using DeepFace"""
+    """Test if face can be detected and compute embedding"""
     try:
-        # Try to extract face
-        face_objs = DeepFace.extract_faces(
-            img_path=image_path,
-            enforce_detection=False,
-            detector_backend='opencv'
-        )
-        return len(face_objs) > 0
+        # Try to compute embedding (this also validates face detection)
+        embedding = compute_embedding(image_path)
+        return embedding is not None
     except:
         return False
 
@@ -274,7 +323,7 @@ def main():
                 success_count = 0
                 error_count = 0
                 
-                with st.spinner("Processing photos..."):
+                with st.spinner("Processing photos and computing embeddings..."):
                     for uploaded_photo in uploaded_photos:
                         # Save uploaded photo
                         photo_dir = "employee_photos"
@@ -284,24 +333,38 @@ def main():
                         with open(photo_path, "wb") as f:
                             f.write(uploaded_photo.getbuffer())
                         
-                        # Test if face can be detected
-                        if test_face_detection(photo_path):
-                            save_employee_data(employee_name, photo_path)
+                        # Compute embedding for this photo
+                        embedding = compute_embedding(photo_path)
+                        
+                        if embedding is not None:
+                            save_employee_data(employee_name, photo_path, embedding)
                             success_count += 1
+                            st.write(f"✅ Processed {uploaded_photo.name} - embedding computed")
                         else:
                             error_count += 1
                             os.remove(photo_path)  # Remove invalid photo
+                            st.write(f"❌ Skipped {uploaded_photo.name} - no face detected")
                 
                 if success_count > 0:
-                    st.success(f"✅ Added {success_count} photos for {employee_name}!")
+                    st.success(f"✅ Added {success_count} photos for {employee_name}! Pre-computed {success_count} embeddings.")
                     if error_count > 0:
                         st.warning(f"⚠️ {error_count} photos were skipped (no clear face detected)")
+                    
+                    # Show embedding info
+                    embeddings_data = load_embeddings_for_recognition()
+                    st.info(f"🚀 Total embeddings in system: {len(embeddings_data['embeddings'])}")
                     st.rerun()
                 else:
                     st.error("❌ No valid faces detected in any photos. Please upload clear photos with visible faces.")
         
         with tab2:
             st.subheader("Manage Employees")
+            
+            # Show embedding statistics
+            embeddings_data = load_embeddings_for_recognition()
+            total_embeddings = len(embeddings_data['embeddings'])
+            if total_embeddings > 0:
+                st.info(f"🚀 System has {total_embeddings} pre-computed embeddings ready for fast recognition!")
             
             employees = get_all_employees()
             if employees:
