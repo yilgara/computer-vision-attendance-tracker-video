@@ -187,7 +187,7 @@ def create_attendance_log(date_str, employee_name, entry_time, exit_time=None):
     df.to_excel(filename, index=False)
     return filename
 
-def recognize_face_in_frame(frame, known_embeddings, known_names, threshold=0.6):
+def recognize_face_in_frame(frame, known_embeddings, known_names, known_ids, threshold=0.6):
     """Recognize faces in frame using pre-computed embeddings (MUCH FASTER!)"""
     try:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -214,16 +214,21 @@ def recognize_face_in_frame(frame, known_embeddings, known_names, threshold=0.6)
             
             # If similarity is above threshold, it's a match
             if similarity > threshold:
+                emp_id = known_ids[i]
                 name = known_names[i]
-                if name not in recognized_names:
-                    recognized_names.append(name)
+
+                if not any(r['id'] == emp_id for r in recognized):
+                    recognized.append({
+                        'id': emp_id,
+                        'name': name,
+                        'similarity': similarity
+                    })
                     st.write(f"🎯 Detected {name} (similarity: {similarity:.3f})")
+
         
-        return recognized_names
-        
+        return recognized
     except Exception as e:
-        if os.path.exists("temp_frame.jpg"):
-            os.remove("temp_frame.jpg")
+        st.warning(f"Face recognition error: {str(e)}")
         return []
 
 def process_video_for_attendance(video_path, camera_type="entry"):
