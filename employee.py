@@ -1,6 +1,7 @@
 import os
 import pickle
 from embeddings import save_embeddings_file
+from utils import load_employee_data
 
 EMPLOYEE_DATA_FILE = "employee_data.pkl"
 
@@ -46,12 +47,6 @@ def save_employee_data(name, photo_path, embedding):
     save_embeddings_file()
 
 
-def load_employee_data():
-    """Load all employee data from file"""
-    if os.path.exists(EMPLOYEE_DATA_FILE):
-        with open(EMPLOYEE_DATA_FILE, 'rb') as f:
-            return pickle.load(f)
-    return {}
 
 
 
