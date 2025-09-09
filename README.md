@@ -1,4 +1,4 @@
-# 🏢 Employee Attendance System 
+# Employee Attendance System 
 
 A complete **computer vision-based employee attendance tracking system** using **DeepFace** for face recognition and **Streamlit** for an interactive web interface. This system allows adding employees, processing video recordings from entry/exit cameras, and generating daily attendance reports automatically in Excel.
 
