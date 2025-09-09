@@ -6,7 +6,7 @@ import os
 
 
 def show():
-    st.header("👥 Employee Management")
+    st.header("Employee Management")
     
     tab1, tab2 = st.tabs(["Add Employee", "Manage Employees"])
     
@@ -49,7 +49,7 @@ def show():
                     st.warning(f"⚠️ {error_count} photos skipped")
                 embeddings_data = load_embeddings_for_recognition()
               
-                st.info(f"🚀 Total embeddings: {len(embeddings_data['embeddings'])}")
+                st.info(f"Total embeddings: {len(embeddings_data['embeddings'])}")
                 st.rerun()
             else:
                 st.error("❌ No valid faces detected.")
