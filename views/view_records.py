@@ -3,7 +3,7 @@ import pandas as pd
 import os 
 
 def show():
-    st.header("📊 Attendance Records")
+    st.header("Attendance Records")
     
     attendance_files = [f for f in os.listdir('.') if f.startswith('attendance_') and f.endswith('.xlsx')]
     attendance_files.sort(reverse=True)
@@ -23,7 +23,7 @@ def show():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             
-            st.subheader("📈 Daily Summary")
+            st.subheader("Daily Summary")
             col1,col2,col3,col4 = st.columns(4)
           
             with col1: 
@@ -34,14 +34,14 @@ def show():
               
             with col3: 
                 avg_hours = df['Total Hours'].mean() if 'Total Hours' in df.columns else None
-                st.metric("⏰ Avg Hours", f"{avg_hours:.1f}" if avg_hours else "N/A")
+                st.metric("Avg Hours", f"{avg_hours:.1f}" if avg_hours else "N/A")
               
             with col4: 
                 late_threshold = datetime.strptime("09:00:00", "%H:%M:%S").time()
                 
                 late_count = df['Entry Time'].dropna().apply(lambda x: datetime.strptime(x, "%H:%M:%S").time() > late_threshold).sum()
 
-                st.metric("⏰ Late Arrivals", int(late_count))
+                st.metric("Late Arrivals", int(late_count))
             
             incomplete = df[df['Entry Time'].notna() & df['Exit Time'].isna()]
             if not incomplete.empty:
