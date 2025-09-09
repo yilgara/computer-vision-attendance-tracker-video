@@ -4,12 +4,12 @@ from datetime import date
 import tempfile, os
 
 def show():
-    st.header("📹 Process Attendance Videos")
+    st.header("Process Attendance Videos")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🚪 Entry Camera")
+        st.subheader("Entry Camera")
       
         entry_video = st.file_uploader("Upload Entry Video", type=['mp4','avi','mov'], key="entry")
       
@@ -34,7 +34,7 @@ def show():
               st.warning("⚠️ No employees detected")
     
     with col2:
-        st.subheader("🚶‍♂️ Exit Camera")
+        st.subheader("Exit Camera")
       
         exit_video = st.file_uploader("Upload Exit Video", type=['mp4','avi','mov'], key="exit")
       
