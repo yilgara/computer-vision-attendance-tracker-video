@@ -48,4 +48,4 @@ def show():
                 st.subheader("🔄 Still in Office")
                 st.dataframe(incomplete[['Employee','Entry Time']], use_container_width=True)
     else:
-        st.info("📋 No attendance records found.")
+        st.info("No attendance records found.")
