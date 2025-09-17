@@ -9,7 +9,7 @@ tensorflow==2.12.0
 # Face recognition
 deepface==0.0.95
 
-# OpenCV (headless for server / Streamlit deployment)
+
 opencv-contrib-python==4.8.0.74
 
 
